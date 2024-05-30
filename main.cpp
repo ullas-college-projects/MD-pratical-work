@@ -27,8 +27,8 @@ pair_vector get_reflexive_ausent_pairs(relationship_t* relationship) {
 pair_vector get_symetric_ausent_pairs(relationship_t* relationship) {
   pair_vector vector = new_pair_vector();
 
-  for(int i = 1; i < MAX_SIZE_SET; i++) {
-    for(int j = 1; j < MAX_SIZE_SET; j++) {
+  for(int i = 0; i < MAX_SIZE_SET; i++) {
+    for(int j = 0; j < MAX_SIZE_SET; j++) {
       pair_t pair = { i, j }, symetric_pair = { j, i };
       if(has(&relationship->pairs, pair)) {
         if(!has(&relationship->pairs, symetric_pair)) {
@@ -109,11 +109,111 @@ bool is_asymetric(relationship_t* relationship) {
   return false;
 }
 
+pair_vector get_reflexive_clasp(relationship_t* relationship) {
+  pair_vector vector = get_all_values(&relationship->pairs); 
+  pair_vector ausent_pairs = get_reflexive_ausent_pairs(relationship);
 
+  for(int i = 0; i < ausent_pairs.size; i++) {
+    push_back(&vector, ausent_pairs.array[i]);
+  }
+  
+  return vector;
+}
 
+pair_vector get_symetric_clasp(relationship_t* relationship) {
+  pair_vector vector = get_all_values(&relationship->pairs); 
+  pair_vector ausent_pairs = get_symetric_ausent_pairs(relationship);
+
+  for(int i = 0; i < ausent_pairs.size; i++) {
+    push_back(&vector, ausent_pairs.array[i]);
+  }
+  
+  return vector;
+}
+
+pair_vector get_transitive_clasp(relationship_t relationship) {
+  pair_vector vector;
+  while(true) {
+    pair_vector vector = get_transitive_ausent_pairs(&relationship);
+
+    if(vector.size == 0) {
+      vector = get_all_values(&relationship.pairs);
+      return vector;
+    }
+    
+    for(int i = 0; i < vector.size; i++) {
+      dbg(vector.array[i].first, vector.array[i].second);
+    }
+
+    for(int i = 0; i < vector.size; i++) {
+      add(&relationship.pairs, vector.array[i]);
+    }
+  }
+}
+
+bool is_a_equivalence_relationship(relationship_t* relationship) {
+  pair_vector ausent_reflexive_pairs = get_reflexive_ausent_pairs(relationship);
+  pair_vector ausent_symetric_pairs = get_symetric_ausent_pairs(relationship);
+  pair_vector ausent_transitive_pairs = get_transitive_ausent_pairs(relationship);
+
+  if(ausent_reflexive_pairs.size == 0 && ausent_symetric_pairs.size == 0 && ausent_transitive_pairs.size == 0) {
+    return true;
+  }
+
+  return false;
+}
+
+bool is_partial_order_relationship(relationship_t* relationship) {
+  pair_vector ausent_reflexive_pairs = get_reflexive_ausent_pairs(relationship);
+  pair_pair_vector present_antisymetric_pairs = get_antisymetric_present_pairs(relationship);
+  pair_vector ausent_transitive_pairs = get_transitive_ausent_pairs(relationship);
+
+  if(ausent_reflexive_pairs.size == 0 && present_antisymetric_pairs.size == 0 && ausent_transitive_pairs.size == 0) {
+    return true;
+  }
+
+  return false;
+}
+
+void output_pair_vector_property(pair_vector* vector) {
+  if(vector->size == 0) {
+    printf("V\n");
+    return;
+  }
+
+  printf("F\n");
+  print(vector);
+}
+
+void output_pair_pair_vector_property(pair_pair_vector* vector) {
+  if(vector->size == 0) {
+    printf("V\n");
+    return;
+  }
+
+  printf("F\n");
+  print_pair_pair_vector(vector);
+}
+
+void output_clasp(pair_vector* clasp, relationship_t* relationship) {
+  if(clasp->size == relationship->pairs.size) {
+    printf("R\n");
+    return;
+  } 
+
+  print(clasp);
+}
+
+void output_bool(bool value) {
+  if(value) {
+    printf("V\n");
+    return;
+  }
+
+  printf("F\n");
+}
 
 int main() {
-
    freopen("input.txt", "r", stdin);
    freopen("output.txt", "w", stdout);
    freopen("error.txt", "w", stderr);
@@ -134,9 +234,77 @@ int main() {
 
   relationship_t relationship = { number_of_values, values, pairs };
 
-  pair_pair_vector r = get_antisymetric_present_pairs(&relationship);
+  printf("Propriedades\n");
 
-  printf("%d", r.size);
+  pair_vector ausent_reflexive_pairs = get_reflexive_ausent_pairs(&relationship);
+  pair_vector present_ireflexive_pairs = get_ireflexive_present_pairs(&relationship);
+  pair_vector ausent_symetric_pairs = get_symetric_ausent_pairs(&relationship);
+  pair_pair_vector ausent_antisymetric_pairs = get_antisymetric_present_pairs(&relationship);
+  pair_vector ausent_transitive_pairs = get_transitive_ausent_pairs(&relationship);
+
+  pair_vector reflexive_clasp = get_reflexive_clasp(&relationship);
+  pair_vector symetric_clasp = get_symetric_clasp(&relationship);
+  pair_vector transitive_clasp = get_transitive_clasp(relationship);
+
+  qsort(ausent_antisymetric_pairs.array, ausent_reflexive_pairs.size, sizeof(pair_t), pair_comparer);
+  qsort(present_ireflexive_pairs.array, present_ireflexive_pairs.size, sizeof(pair_t), pair_comparer);
+  qsort(ausent_symetric_pairs.array, ausent_symetric_pairs.size, sizeof(pair_t), pair_comparer);
+
+  for(int i = 0; i < ausent_antisymetric_pairs.size; i++) {
+    pair_t a = ausent_antisymetric_pairs.array[i].first, b = ausent_antisymetric_pairs.array[i].second;
+
+    if(pair_comparer(&a, &b) > 0) {
+      pair_t aux = a;
+      ausent_antisymetric_pairs.array[i].first = b;
+      ausent_antisymetric_pairs.array[i].second = b;
+    }
+  }
+
+  qsort(ausent_antisymetric_pairs.array, ausent_antisymetric_pairs.size, sizeof(pair_pair_t), pair_pair_comparer);
+
+  qsort(ausent_transitive_pairs.array, ausent_transitive_pairs.size, sizeof(pair_t), pair_comparer);
+  qsort(reflexive_clasp.array, reflexive_clasp.size, sizeof(pair_t), pair_comparer);
+  qsort(symetric_clasp.array, symetric_clasp.size, sizeof(pair_t), pair_comparer);
+  qsort(transitive_clasp.array, transitive_clasp.size, sizeof(pair_t), pair_comparer);
+
+
+  printf("1. Reflexiva: "); 
+  output_pair_vector_property(&ausent_reflexive_pairs);
+
+  printf("2. Irreflexiva: "); 
+  output_pair_vector_property(&present_ireflexive_pairs);
+
+  printf("3. Simetrica: "); 
+  output_pair_vector_property(&ausent_symetric_pairs);
+
+
+  printf("4. Anti-simetrica: "); 
+  output_pair_pair_vector_property(&ausent_antisymetric_pairs);
+
+
+  printf("5. Assimetrica: "); 
+  output_bool(is_asymetric(&relationship));
+
+  printf("6. Transitiva: ");
+  output_pair_vector_property(&ausent_transitive_pairs);
+
+  printf("Relacao de equivalencia: ");
+  output_bool(is_a_equivalence_relationship(&relationship));
+
+
+  printf("Relacao de ordem parcial: ");
+  output_bool(is_partial_order_relationship(&relationship));
+
+  printf("Fecho reflexivo da relacao: ");
+  output_clasp(&reflexive_clasp, &relationship);
+
+
+  printf("Fecho simetrico da relacao: ");
+  output_clasp(&symetric_clasp, &relationship);
+
+
+  printf("Fecho transitivo da relacao: ");
+  output_clasp(&transitive_clasp, &relationship);
 
   return 0;
 }
